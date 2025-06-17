@@ -1,107 +1,202 @@
-version: '2'
+name: retool-onpremise
 services:
   api:
     build:
-      context: ./
+      context: /root/retool/retool-onpremise
       dockerfile: Dockerfile
-    env_file: ./docker.env
-    environment:
-      - SERVICE_TYPE=MAIN_BACKEND
-      - DB_CONNECTOR_HOST=http://db-connector
-      - DB_CONNECTOR_PORT=3002
-      - DB_SSH_CONNECTOR_HOST=http://db-ssh-connector
-      - DB_SSH_CONNECTOR_PORT=3002
-    networks:
-      - frontend-network
-      - backend-network
-      - db-connector-network
-      - db-ssh-connector-network
+    command: >
+      bash -c "./docker_scripts/wait-for-it.sh postgres:5432 && ./docker_scripts/start_api.sh"
     depends_on:
-      - postgres
-      - db-connector
-      - db-ssh-connector
-    command: bash -c "./docker_scripts/wait-for-it.sh postgres:5432; ./docker_scripts/start_api.sh"
-    links:
-      - postgres
+      db-connector:
+        condition: service_started
+        required: true
+      db-ssh-connector:
+        condition: service_started
+        required: true
+      postgres:
+        condition: service_started
+        required: true
+    environment:
+      BASE_DOMAIN: https://localhost:8443
+      COOKIE_INSECURE: "true"
+      DB_CONNECTOR_HOST: http://db-connector
+      DB_CONNECTOR_PORT: "3002"
+      DB_SSH_CONNECTOR_HOST: http://db-ssh-connector
+      DB_SSH_CONNECTOR_PORT: "3002"
+      JWT_SECRET: dein_geheimes_token
+      LICENSE_KEY: SSOP_b68a52f0-4fcd-4dfd-929b-4b505175f6d2
+      MYSQL_DATABASE: n8n
+      MYSQL_HOST: 172.31.202.62
+      MYSQL_PASSWORD: Mapicor2025
+      MYSQL_PORT: "3306"
+      MYSQL_USER: n8n_user
+      NODE_ENV: production
+      POSTGRES_DB: hammerhead_production
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: retool_secure_pw
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: retool_internal_user
+      RETOOL_HOST: 0.0.0.0
+      SERVICE_TYPE: MAIN_BACKEND
+    networks:
+      - retool-network
     ports:
-      - '3000:3000'
+      - "3000:3000"
     volumes:
-      - ./keys:/root/.ssh
+      - /root/retool-ssh/keys:/root/.ssh
       - ssh:/retool_backend/autogen_ssh_keys
-
-  jobs-runner:
-    build:
-      context: ./
-      dockerfile: Dockerfile
-    env_file: ./docker.env
-    environment:
-      - SERVICE_TYPE=JOBS_RUNNER
-    networks:
-      - backend-network
-    depends_on:
-      - postgres
-    command: bash -c "chmod -R +x ./docker_scripts; sync; ./docker_scripts/wait-for-it.sh postgres:5432; ./docker_scripts/start_api.sh"
-    links:
-      - postgres
+      - /home/user/batch_storage:/batch_storage
 
   db-connector:
     build:
-      context: ./
+      context: /root/retool/retool-onpremise
       dockerfile: Dockerfile
-    command: bash -c "./retool_backend"
-    env_file: ./docker.env
+    command: ./retool_backend
     environment:
-      - SERVICE_TYPE=DB_CONNECTOR_SERVICE
+      BASE_DOMAIN: https://localhost:8443
+      COOKIE_INSECURE: "true"
+      JWT_SECRET: dein_geheimes_token
+      LICENSE_KEY: SSOP_b68a52f0-4fcd-4dfd-929b-4b505175f6d2
+      NODE_ENV: production
+      POSTGRES_DB: hammerhead_production
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: retool_secure_pw
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: retool_internal_user
+      RETOOL_HOST: 0.0.0.0
+      SERVICE_TYPE: DB_CONNECTOR_SERVICE
     networks:
-      - db-connector-network
+      - retool-network
     restart: on-failure
 
   db-ssh-connector:
     build:
-      context: ./
+      context: /root/retool/retool-onpremise
       dockerfile: Dockerfile
-    command: bash -c "./docker_scripts/generate_key_pair.sh; ./retool_backend"
-    env_file: ./docker.env
     environment:
-      - SERVICE_TYPE=DB_SSH_CONNECTOR_SERVICE
+      BASE_DOMAIN: https://localhost:8443
+      COOKIE_INSECURE: "true"
+      JWT_SECRET: dein_geheimes_token
+      LICENSE_KEY: SSOP_b68a52f0-4fcd-4dfd-929b-4b505175f6d2
+      NODE_ENV: production
+      POSTGRES_DB: hammerhead_production
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: retool_secure_pw
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: retool_internal_user
+      RETOOL_HOST: 0.0.0.0
+      SERVICE_TYPE: DB_SSH_CONNECTOR_SERVICE
     networks:
-      - db-ssh-connector-network
+      - retool-network
+    restart: on-failure
     volumes:
       - ssh:/retool_backend/autogen_ssh_keys
-      - ./keys:/retool_backend/keys
-    restart: on-failure
+      - /root/retool/retool-onpremise/keys:/retool_backend/keys
+      - /root/retool-ssh/keys:/root/.ssh
 
-  # Retool's storage database. See these docs to migrate to an externally hosted database: https://docs.retool.com/docs/configuring-retools-storage-database
-  postgres:
-    image: 'postgres:9.6.5'
-    env_file: docker.env
+  jobs-runner:
+    build:
+      context: /root/retool/retool-onpremise
+      dockerfile: Dockerfile
+    command: >
+      bash -c "chmod -R +x ./docker_scripts && sync && ./docker_scripts/wait-for-it.sh postgres:5432 && ./docker_scripts/start_api.sh"
+    depends_on:
+      postgres:
+        condition: service_started
+        required: true
+    environment:
+      BASE_DOMAIN: https://localhost:8443
+      COOKIE_INSECURE: "true"
+      JWT_SECRET: dein_geheimes_token
+      LICENSE_KEY: SSOP_b68a52f0-4fcd-4dfd-929b-4b505175f6d2
+      NODE_ENV: production
+      POSTGRES_DB: hammerhead_production
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: retool_secure_pw
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: retool_internal_user
+      RETOOL_HOST: 0.0.0.0
+      SERVICE_TYPE: JOBS_RUNNER
     networks:
-      - backend-network
-      - db-connector-network
+      - retool-network
+
+  n8n:
+    build:
+      context: /root/retool/retool-onpremise
+      dockerfile: Dockerfile.n8n
+    container_name: n8n
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_PASSWORD: deinpasswort
+      N8N_BASIC_AUTH_USER: deinuser
+    networks:
+      - retool-network
+    ports:
+      - "5678:5678"
+    restart: unless-stopped
+    user: root
+    volumes:
+      - /root/retool-ssh/keys:/root/.ssh
+      - /home/user/batch_storage:/batch_storage
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:latest
+    networks:
+      - retool-network
+    ports:
+      - "11435:11434"
+    restart: unless-stopped
+    volumes:
+      - /home/user/batch_storage:/batch_storage
+      - ollama-data:/root/.ollama
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: hammerhead_production
+      POSTGRES_USER: retool_internal_user
+      POSTGRES_PASSWORD: retool_secure_pw
+    networks:
+      - retool-network
     volumes:
       - data:/var/lib/postgresql/data
 
-  # Not required, but leave this container to use nginx for handling the frontend & SSL certification
-  https-portal:
-    image: tryretool/https-portal:latest
-    ports:
-      - '80:80'
-      - '443:443'
-    links:
-      - api
-    restart: always
-    env_file: ./docker.env
-    environment:
-      STAGE: 'local' # <- Change 'local' to 'production' to use a LetsEncrypt signed SSL cert
+  tesseract:
+    container_name: tesseract
+    image: my-tesseract:latest
     networks:
-      - frontend-network
+      - retool-network
+    restart: unless-stopped
+    volumes:
+      - /home/user/batch_storage:/batch_storage
+    command: tail -f /dev/null
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    networks:
+      - retool-network
+    ports:
+      - "8080:80"
+    volumes:
+      - /home/user/batch_storage:/usr/share/nginx/html/pdf:ro
+      - /etc/nginx/conf.d:/etc/nginx/conf.d
+    restart: unless-stopped
+
 networks:
-  frontend-network:
-  backend-network:
-  db-connector-network:
-  db-ssh-connector-network:
+  retool-network:
+    name: retool-onpremise_retool-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
 
 volumes:
-  ssh:
   data:
-  user-data:
+    name: retool-onpremise_data
+  ollama-data:
+    name: retool-onpremise_ollama-data
+  ssh:
+    name: retool-onpremise_ssh

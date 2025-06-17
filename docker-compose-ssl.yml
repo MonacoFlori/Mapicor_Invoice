@@ -3,7 +3,7 @@ services:
   api:
     build:
       context: ./
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
     env_file: ./docker.env
     environment:
       - SERVICE_TYPE=MAIN_BACKEND
@@ -32,7 +32,7 @@ services:
   jobs-runner:
     build:
       context: ./
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
     env_file: ./docker.env
     environment:
       - SERVICE_TYPE=JOBS_RUNNER
@@ -47,7 +47,7 @@ services:
   db-connector:
     build:
       context: ./
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
     command: bash -c "./retool_backend"
     env_file: ./docker.env
     environment:
@@ -59,7 +59,7 @@ services:
   db-ssh-connector:
     build:
       context: ./
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
     command: bash -c "./docker_scripts/generate_key_pair.sh; ./retool_backend"
     env_file: ./docker.env
     environment:
@@ -71,6 +71,7 @@ services:
       - ./keys:/retool_backend/keys
     restart: on-failure
 
+  # Retool's storage database. See these docs to migrate to an externally hosted database: https://docs.retool.com/docs/configuring-retools-storage-database
   postgres:
     image: 'postgres:9.6.5'
     env_file: docker.env
@@ -80,20 +81,20 @@ services:
     volumes:
       - data:/var/lib/postgresql/data
 
-  # Uncomment below to use nginx container to handle the frontend & SSL certification
-#  https-portal:
-#    image: tryretool/https-portal:latest
-#    ports:
-#      - '80:80'
-#      - '443:443'
-#    links:
-#      - api
-#    restart: always
-#    env_file: ./docker.env
-#    environment:
-#      STAGE: 'local' # <- Change 'local' to 'production' to use a LetsEncrypt signed SSL cert
-#    networks:
-#      - frontend-network
+  # Not required, but leave this container to use nginx for handling the frontend & SSL certification
+  https-portal:
+    image: tryretool/https-portal:latest
+    ports:
+      - '80:80'
+      - '443:443'
+    links:
+      - api
+    restart: always
+    env_file: ./docker.env
+    environment:
+      STAGE: 'local' # <- Change 'local' to 'production' to use a LetsEncrypt signed SSL cert
+    networks:
+      - frontend-network
 networks:
   frontend-network:
   backend-network:

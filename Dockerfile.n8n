@@ -1,0 +1,30 @@
+FROM debian:bullseye-slim
+
+# Installation von Abhängigkeiten
+RUN apt-get update && apt-get install -y \
+    curl \
+    poppler-utils \
+    openssh-client \
+    docker.io \
+    cups-client
+
+# Installation von Node.js und n8n
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g n8n
+
+# Bereinigung
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Verzeichnis für batch_storage erstellen
+RUN mkdir -p /batch_storage
+
+# Benutzer node erstellen
+RUN useradd -ms /bin/bash node
+
+# Benutzer wechseln und Arbeitsverzeichnis setzen
+USER node
+WORKDIR /home/node
+
+# Startbefehl
+CMD ["n8n"]
